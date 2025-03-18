@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="PT-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TVS MG</title>
+  <link rel="stylesheet" href="https://unpkg.com/swiper/swiper-bundle.min.css" />
+  <style>
+    html, body {
+      margin: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: Arial, sans-serif;
+    }
+
+    .swiper-container {
+      width: 100%;
+      height: 100vh;
+    }
+
+    .swiper-slide {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+
+    .swiper-slide img {
+      width: 90vw;
+      height: 90vh;
+      object-fit: contain;
+      opacity: 0;
+      transition: opacity 0.5s ease-in;
+    }
+
+    .upload-form {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background-color: rgba(255, 255, 255, 0.8);
+      padding: 10px 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+    }
+
+    .upload-form input[type="file"] {
+      margin-right: 10px;
+    }
+
+    .error-message {
+      color: red;
+      text-align: center;
+      margin: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  
+  <div class="error-message" id="error-message">Erro ao carregar imagens. Tente novamente mais tarde.</div>
+
+  <div class="swiper-container">
+    <div class="swiper-wrapper" id="carousel-images">
+    </div>
+    <div class="swiper-button-next"></div>
+    <div class="swiper-button-prev"></div>
+  </div>
+
+  <script src="https://unpkg.com/swiper/swiper-bundle.min.js"></script>
+  <script>
+    const FOLDER_ID = '1ckKE5gGfOwXih4_TjINg9S24cGR3S7wy';
+    const API_KEY = 'AIzaSyAjRQDeAS-6UdNXF2gzNRO2l5ObSRy68BI';
+
+    const carouselImages = document.getElementById('carousel-images');
+    const errorMessage = document.getElementById('error-message');
+    let swiper = null;
+
+    async function fetchGoogleDriveImages() {
+      const url = `https://www.googleapis.com/drive/v3/files?q='${FOLDER_ID}'+in+parents&key=${API_KEY}&fields=files(id,name,mimeType)`;
+      
+      try {
+        const response = await fetch(url);
+        const data = await response.json();
+
+        if (data.files && data.files.length > 0) {
+          carouselImages.innerHTML = '';
+          errorMessage.style.display = 'none';
+
+          const imagePromises = data.files
+            .filter(file => file.mimeType.startsWith('image/'))
+            .map(file => {
+              return new Promise((resolve) => {
+                const imageUrl = `https://lh3.googleusercontent.com/d/${file.id}=s1080`;
+                const slide = document.createElement('div');
+                slide.classList.add('swiper-slide');
+                
+                const img = document.createElement('img');
+                img.src = imageUrl;
+                img.alt = file.name;
+
+                img.onload = () => {
+                  img.style.opacity = '1';
+                  resolve(slide);
+                };
+                
+                img.onerror = () => {
+                  console.error('Erro ao carregar imagem:', imageUrl);
+                  resolve(null);
+                };
+                
+                slide.appendChild(img);
+              });
+            });
+
+          const slides = await Promise.all(imagePromises);
+          slides.filter(slide => slide !== null).forEach(slide => {
+            carouselImages.appendChild(slide);
+          });
+
+          // Destruir o Swiper existente se houver
+          if (swiper) {
+            swiper.destroy(true, true);
+          }
+
+          // Inicializar novo Swiper após as imagens serem carregadas
+          swiper = new Swiper('.swiper-container', {
+            loop: true,
+            navigation: {
+              nextEl: '.swiper-button-next',
+              prevEl: '.swiper-button-prev',
+            },
+            autoplay: {
+              delay: 10000,
+              disableOnInteraction: false,
+            },
+            on: {
+              init: function () {
+                console.log('Swiper inicializado!');
+                // Forçar início do autoplay
+                this.autoplay.start();
+              },
+              autoplay: function () {
+                console.log('Autoplay acionado!');
+              }
+            },
+          });
+
+          // Garantir que o autoplay comece
+          swiper.autoplay.start();
+        } else {
+          errorMessage.style.display = 'block';
+        }
+      } catch (error) {
+        console.error('Erro ao buscar imagens:', error);
+        errorMessage.style.display = 'block';
+      }
+    }
+
+    // Carregar imagens inicialmente
+    fetchGoogleDriveImages();
+
+    // Recarregar imagens e reiniciar Swiper a cada 10 horas
+    setInterval(() => {
+      location.reload();
+    }, 300000);
+
+    // Garantir que o autoplay continue após interações do usuário
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible' && swiper) {
+        swiper.autoplay.start();
+      }
+    });
+  </script>
+</body>
+</html>
